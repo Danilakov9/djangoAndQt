@@ -1,0 +1,2 @@
+# djangoAndQt
+djangoAndQt Homework
