@@ -40,8 +40,8 @@ void Widget::serial_textedit_slot()
     dhtbuf.append(buf);
 
     QJsonObject jsonObj;
-
-    if(dhtbuf.at(0)=="T" )
+    // if(dhtbuf.at(0)=="T" )
+    if(dhtbuf.at(0)== QChar('T') )
     {
         str_t.append(dhtbuf.at(1));
         str_t.append(dhtbuf.at(2));
