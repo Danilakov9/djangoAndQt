@@ -84,11 +84,14 @@ void Widget::serial_textedit_slot()
     // 添加时间戳到JSON对象
     jsonObj["Timestamp"] = str_time;
 
-    // 将JSON对象写入文件
+    // 将JSON对象转换为JSON文档
     QJsonDocument jsonDoc(jsonObj);
+
+    // 打开文件，追加写入模式
     QFile jsonFile("data.json");
-    if (jsonFile.open(QIODevice::WriteOnly)) {
-        jsonFile.write(jsonDoc.toJson());
+    if (jsonFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        // 将JSON文档写入文件
+        jsonFile.write(jsonDoc.toJson(QJsonDocument::Compact) + "\n");
         jsonFile.close();
     }
 }
@@ -153,12 +156,12 @@ void Widget::on_serial_close_clicked()
 
 void Widget::on_pushButton_clicked()
 {
-   // serialport->write(ui->serial_tx_edit->text().toLocal8Bit().data());
+    // serialport->write(ui->serial_tx_edit->text().toLocal8Bit().data());
 }
 
 void Widget::on_pushButton_2_clicked()
 {
-   // ui->serial_rx_edit->clear();
+    // ui->serial_rx_edit->clear();
 }
 
 //温度阈值设置
