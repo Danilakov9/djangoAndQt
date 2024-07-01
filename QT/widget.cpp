@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QFile>
 
 Widget::Widget(QWidget *parent)
@@ -30,18 +31,24 @@ Widget::~Widget()
 {
     delete ui;
 }
+
+QJsonObject tempData;  // 临时存储数据
+QString currentTimestamp;  // 临时存储时间戳
+
 //触发槽函数，显示串口打印信息
 void Widget::serial_textedit_slot()
 {
-    QTime current_time = QTime::currentTime(); //获取系统时间
-    QString str_time = current_time.toString("hh:mm:ss"); //格式化数据时间
-    QString buf,dhtbuf,str_t,str_h,str_s,str_sq_buf,str_id;
+    if (currentTimestamp.isEmpty()) {
+        QTime current_time = QTime::currentTime(); //获取系统时间
+        currentTimestamp = current_time.toString("hh:mm:ss"); //格式化数据时间
+    }
+
+    QString buf, dhtbuf, str_t, str_h, str_s, str_id;
     buf = QString(serialport->readAll());
     dhtbuf.append(buf);
 
-    QJsonObject jsonObj;
-    // if(dhtbuf.at(0)=="T" )
-    if(dhtbuf.at(0)== QChar('T') )
+    bool hasNewData = false;
+    if (dhtbuf.at(0) == QChar('T'))
     {
         str_t.append(dhtbuf.at(1));
         str_t.append(dhtbuf.at(2));
@@ -53,10 +60,13 @@ void Widget::serial_textedit_slot()
         str_s.append(dhtbuf.at(6));
         ui->serial_gas->setText(str_s);
 
-        jsonObj["Temperature"] = str_t;
-        jsonObj["Humidity"] = str_h;
-        jsonObj["Gas"] = str_s;
-    }else if(dhtbuf.at(0)=='I'){
+        tempData["Temperature"] = str_t;
+        tempData["Humidity"] = str_h;
+        tempData["Gas"] = str_s;
+        hasNewData = true;
+    }
+    else if (dhtbuf.at(0) == 'I')
+    {
         str_id.append(dhtbuf.at(1));
         str_id.append(dhtbuf.at(2));
         str_id.append(dhtbuf.at(3));
@@ -67,32 +77,60 @@ void Widget::serial_textedit_slot()
         str_id.append(dhtbuf.at(8));
         ui->serial_id->setText(str_id);
 
-        jsonObj["ID"] = str_id;
+        tempData["ID"] = str_id;
+        hasNewData = true;
     }
-    str_sq_buf.append(str_time);
-    str_sq_buf.append(" 温度:");
-    str_sq_buf.append(ui->serial_dht_wendu->text());
-    str_sq_buf.append(" 湿度:");
-    str_sq_buf.append(ui->serial_dht_shidu->text());
-    str_sq_buf.append(" 烟雾:");
-    str_sq_buf.append(ui->serial_gas->text());
-    str_sq_buf.append(" ID:");
-    str_sq_buf.append(ui->serial_id->text());
 
-    ui->serial_rx_edit->appendPlainText(str_sq_buf);
+    if (hasNewData)
+    {
+        if (tempData.contains("Temperature") && tempData.contains("ID"))
+        {
+            QString str_sq_buf;
+            str_sq_buf.append(currentTimestamp);
+            str_sq_buf.append(" 温度:");
+            str_sq_buf.append(ui->serial_dht_wendu->text());
+            str_sq_buf.append(" 湿度:");
+            str_sq_buf.append(ui->serial_dht_shidu->text());
+            str_sq_buf.append(" 烟雾:");
+            str_sq_buf.append(ui->serial_gas->text());
+            str_sq_buf.append(" ID:");
+            str_sq_buf.append(ui->serial_id->text());
 
-    // 添加时间戳到JSON对象
-    jsonObj["Timestamp"] = str_time;
+            ui->serial_rx_edit->appendPlainText(str_sq_buf);
 
-    // 将JSON对象转换为JSON文档
-    QJsonDocument jsonDoc(jsonObj);
+            // 添加时间戳到JSON对象
+            tempData["Timestamp"] = currentTimestamp;
 
-    // 打开文件，追加写入模式
-    QFile jsonFile("data.json");
-    if (jsonFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        // 将JSON文档写入文件
-        jsonFile.write(jsonDoc.toJson(QJsonDocument::Compact) + "\n");
-        jsonFile.close();
+            // 读取现有文件内容
+            QFile jsonFile("data.json");
+            QJsonArray jsonArray;
+
+            if (jsonFile.exists() && jsonFile.open(QIODevice::ReadOnly))
+            {
+                QByteArray fileData = jsonFile.readAll();
+                QJsonDocument loadDoc(QJsonDocument::fromJson(fileData));
+                if (loadDoc.isArray())
+                {
+                    jsonArray = loadDoc.array();
+                }
+                jsonFile.close();
+            }
+
+            // 添加新记录
+            jsonArray.append(tempData);
+
+            // 写回文件
+            if (jsonFile.open(QIODevice::WriteOnly))
+            {
+                QJsonDocument saveDoc(jsonArray);
+                jsonFile.write(saveDoc.toJson(QJsonDocument::Indented));
+                jsonFile.close();
+            }
+
+            // 清空临时数据和时间戳
+            tempData = QJsonObject();
+            currentTimestamp.clear();
+        }
     }
 }
 //串口初始化参数配置
@@ -101,35 +139,53 @@ void Widget::on_serial_open_clicked()
     QSerialPort::BaudRate baudrate;
     QSerialPort::DataBits databits;
     QSerialPort::StopBits stopbits;
-    QSerialPort::Parity   check;
+    QSerialPort::Parity check;
     //波特率
-    if(ui->serial_baud->currentText() == "9600"){
+    if (ui->serial_baud->currentText() == "9600")
+    {
         baudrate = QSerialPort::Baud9600;
-    }else if(ui->serial_baud->currentText() == "38400"){
+    }
+    else if (ui->serial_baud->currentText() == "38400")
+    {
         baudrate = QSerialPort::Baud38400;
-    }else if(ui->serial_baud->currentText() == "115200"){
+    }
+    else if (ui->serial_baud->currentText() == "115200")
+    {
         baudrate = QSerialPort::Baud115200;
     }
     //数据位
-    if(ui->serial_data->currentText() == "5"){
+    if (ui->serial_data->currentText() == "5")
+    {
         databits = QSerialPort::Data5;
-    }else if(ui->serial_data->currentText() == "6"){
+    }
+    else if (ui->serial_data->currentText() == "6")
+    {
         databits = QSerialPort::Data6;
-    }else if(ui->serial_data->currentText() == "7"){
+    }
+    else if (ui->serial_data->currentText() == "7")
+    {
         databits = QSerialPort::Data7;
-    }else if(ui->serial_data->currentText() == "8"){
+    }
+    else if (ui->serial_data->currentText() == "8")
+    {
         databits = QSerialPort::Data8;
     }
     //停止位
-    if(ui->serial_stop->currentText() == "1"){
+    if (ui->serial_stop->currentText() == "1")
+    {
         stopbits = QSerialPort::OneStop;
-    }else if(ui->serial_stop->currentText() == "1.5"){
+    }
+    else if (ui->serial_stop->currentText() == "1.5")
+    {
         stopbits = QSerialPort::OneAndHalfStop;
-    }else if(ui->serial_stop->currentText() == "2"){
+    }
+    else if (ui->serial_stop->currentText() == "2")
+    {
         stopbits = QSerialPort::TwoStop;
     }
     //校验位
-    if(ui->serial_check->currentText() == "none"){
+    if (ui->serial_check->currentText() == "none")
+    {
         check = QSerialPort::NoParity;
     }
     //初始化
@@ -139,19 +195,19 @@ void Widget::on_serial_open_clicked()
     serialport->setStopBits(stopbits);
     serialport->setParity(check);
     //判断是否打开成功
-    if(serialport->open(QIODevice::ReadWrite) == true)
+    if (serialport->open(QIODevice::ReadWrite) == true)
     {
-        QMessageBox::information(this,"提示","成功");
-    }else{
-        QMessageBox::critical(this,"提示","错误");
+        QMessageBox::information(this, "提示", "成功");
     }
-
+    else
+    {
+        QMessageBox::critical(this, "提示", "错误");
+    }
 }
 
 void Widget::on_serial_close_clicked()
 {
     serialport->close();
-
 }
 
 void Widget::on_pushButton_clicked()
