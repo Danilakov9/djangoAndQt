@@ -2,7 +2,7 @@
 #include "ui_widget.h"
 #include <QSerialPortInfo>
 #include <QMessageBox>
-#include <QTime>
+#include <QDateTime>  // 使用 QDateTime
 #include <QTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -39,8 +39,8 @@ QString currentTimestamp;  // 临时存储时间戳
 void Widget::serial_textedit_slot()
 {
     if (currentTimestamp.isEmpty()) {
-        QTime current_time = QTime::currentTime(); //获取系统时间
-        currentTimestamp = current_time.toString("hh:mm:ss"); //格式化数据时间
+        QDateTime current_date_time = QDateTime::currentDateTime(); //获取系统日期时间
+        currentTimestamp = current_date_time.toString("yyyy-MM-dd hh:mm:ss"); //格式化数据时间
     }
 
     QString buf, dhtbuf, str_t, str_h, str_s, str_id;
